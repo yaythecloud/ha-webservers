@@ -1,0 +1,8 @@
+# ignore local terraform directories
+/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars
+*.swp
+/files/*
