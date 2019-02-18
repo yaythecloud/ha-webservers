@@ -27,7 +27,8 @@ resource "aws_subnet" "public-subnet-a" {
   vpc_id = "${aws_vpc.vpc.id}"
   cidr_block = "${var.public-subnet-a}"
   availability_zone = "${data.aws_availability_zones.available.names[0]}"
-
+  map_public_ip_on_launch = "true"
+ 
   tags = {
     Name = "${var.environment}-public-subnet-a"
     Environment = "${var.environment}"
@@ -38,7 +39,8 @@ resource "aws_subnet" "public-subnet-b" {
   vpc_id = "${aws_vpc.vpc.id}"
   cidr_block = "${var.public-subnet-b}"
   availability_zone = "${data.aws_availability_zones.available.names[1]}"
-
+  map_public_ip_on_launch = "true"
+  
   tags = {
     Name = "${var.environment}-public-subnet-b"
     Environment = "${var.environment}"
@@ -75,7 +77,15 @@ resource "aws_network_acl" "nacl" {
     from_port = 443
     to_port = 443
   }
-
+  egress {
+    protocol = "tcp"
+    rule_no = 103
+    action = "allow"
+    cidr_block = "69.140.89.42/32"
+    from_port = 22
+    to_port = 22
+  }
+    
   ingress {
     protocol = "tcp"
     rule_no = 100
@@ -99,6 +109,14 @@ resource "aws_network_acl" "nacl" {
     cidr_block = "0.0.0.0/0"
     from_port = 443
     to_port = 443
+  }
+  ingress {
+    protocol = "tcp"
+    rule_no = 103
+    action = "allow"
+    cidr_block = "69.140.89.42/32"
+    from_port = 22
+    to_port = 22
   }
   
   tags = {
@@ -215,7 +233,7 @@ resource "aws_elb" "nlb" {
 ### webservers ###
 
 resource "aws_instance" "webserver-a" {
-  ami = "ami-c58c1dd3"
+  ami = "ami-d5bf2caa"
   instance_type = "t2.micro"
   subnet_id = "${aws_subnet.public-subnet-a.id}"
   vpc_security_group_ids = ["${aws_security_group.webserver-sg.id}"]
@@ -228,23 +246,25 @@ resource "aws_instance" "webserver-a" {
   } 
 
   connection {
-    user  = "ec2-user"
+    user  = "centos"
     private_key = "${file(var.private_key)}"
   }
+ 
   provisioner "remote-exec" {
     inline = [
+      "sudo yum update -y",
+      "sudo yum install epel-release -y",
       "sudo yum install nginx -y",
-      "sudo service nginx start"
-      ]
-   }
+      "sudo service nginx start",
+    ]
+  }
 }
 
 
-
 resource "aws_instance" "webserver-b" {
-  ami = "ami-c58c1dd3"
+  ami = "ami-d5bf2caa"
   instance_type = "t2.micro"
-  subnet_id = "${aws_subnet.public-subnet-b.id}"
+  subnet_id = "${aws_subnet.public-subnet-a.id}"
   vpc_security_group_ids = ["${aws_security_group.webserver-sg.id}"]
   key_name = "${aws_key_pair.example-keypair2.id}"
 
@@ -252,33 +272,25 @@ resource "aws_instance" "webserver-b" {
   tags = {
     Name = "${var.environment}-webserver-b"
     Environment = "${var.environment}"
-     }
+  } 
 
   connection {
-    user  = "ec2-user"
+    user  = "centos"
     private_key = "${file(var.private_key)}"
   }
-
+ 
   provisioner "remote-exec" {
     inline = [
+      "sudo yum update -y",
+      "sudo yum install epel-release -y",
       "sudo yum install nginx -y",
       "sudo service nginx start",
-      "echo '<html><head><title>Green Server</title></head><body style=\"background-color:#77A032\"><p style=\"text-align: center;\"><span style=\"color:#FFFFFF;\"><span style=\"font-size:28px;\"><Blue Team</span></span></p></body></html>' | sudo tee /usr/share/nginx/html/index.html"
-      ]
-   }
+    ]
+  }
 }
-
-
 
 ### outputs ###
 
 output "aws_elb_public_dns" {
   value = "${aws_elb.nlb.dns_name}"
 }
-
-
-
-
-
-
-
